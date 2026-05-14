@@ -1,12 +1,15 @@
 import { type NextRequest } from "next/server";
-import { extractTextFromPdf } from "@/lib/pdf-extractor";
-import { detectFormulas } from "@/lib/formula-detector";
+import {
+  extractFromPdf,
+  parseQuestions,
+  parseAnswers,
+} from "@/lib/pdf-extractor";
 import { buildHwpx } from "@/lib/hwpx-builder";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Allow up to 60s for Claude Vision + PDF processing
-export const maxDuration = 60;
+// Two parallel Claude Vision calls per request
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,12 +30,26 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const [{ text, pageCount }, formulas] = await Promise.all([
-      extractTextFromPdf(buffer),
-      detectFormulas(buffer),
-    ]);
+    const allPages = await extractFromPdf(buffer);
 
-    const hwpxBuffer = await buildHwpx(text, formulas);
+    const questionPages = allPages.filter((p) => !p.isAnswerPage);
+    const answerPages = allPages.filter((p) => p.isAnswerPage);
+
+    const questionText = questionPages.map((p) => p.text).join("\n");
+    const questions = parseQuestions(questionText);
+
+    const answerText = answerPages.map((p) => p.text).join("\n");
+    const answerMap = parseAnswers(answerText);
+
+    for (const q of questions) {
+      const matched = answerMap.get(q.number);
+      if (matched) {
+        q.answer = matched.answer;
+        q.explanation = matched.explanation;
+      }
+    }
+
+    const hwpxBuffer = await buildHwpx(questionText, questions);
 
     const outputFilename = file.name.replace(/\.pdf$/i, ".hwpx");
 
@@ -41,8 +58,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/hwp+zip",
         "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(outputFilename)}`,
-        "X-Page-Count": String(pageCount),
-        "X-Formula-Count": String(formulas.length),
+        "X-Page-Count": String(questionPages.length),
       },
     });
   } catch (err) {

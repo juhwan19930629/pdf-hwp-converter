@@ -1,5 +1,6 @@
 import JSZip from "jszip";
-import type { Formula } from "./formula-detector";
+import type { ParsedQuestion } from "./pdf-extractor";
+import { latexToHwp } from "./latex-to-hwp";
 
 const PRV_IMAGE_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=";
@@ -49,35 +50,65 @@ function buildSourceScriptsJs(): string {
   return "function OnDocument_New()\r\n{\r\n\t//todo : \r\n}\r\n";
 }
 
-const SEC_PR = `<hp:p id="1000000001" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="0"><hp:secPr id="" textDirection="HORIZONTAL" spaceColumns="1134" tabStop="8000" tabStopVal="4000" tabStopUnit="HWPUNIT" outlineShapeIDRef="1" memoShapeIDRef="0" textVerticalWidthHead="0" masterPageCnt="0"><hp:grid lineGrid="0" charGrid="0" wonggojiFormat="0"/><hp:startNum pageStartsOn="BOTH" page="0" pic="0" tbl="0" equation="0"/><hp:visibility hideFirstHeader="0" hideFirstFooter="0" hideFirstMasterPage="0" border="SHOW_ALL" fill="SHOW_ALL" hideFirstPageNum="0" hideFirstEmptyLine="0" showLineNumber="0"/><hp:lineNumberShape restartType="0" countBy="0" distance="0" startNumber="0"/><hp:pagePr landscape="WIDELY" width="59528" height="84186" gutterType="LEFT_ONLY"><hp:margin header="4252" footer="4252" gutter="0" left="8504" right="8504" top="5668" bottom="4252"/></hp:pagePr><hp:footNotePr><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/><hp:noteLine length="-1" type="SOLID" width="0.12 mm" color="#000000"/><hp:noteSpacing betweenNotes="283" belowLine="567" aboveLine="850"/><hp:numbering type="CONTINUOUS" newNum="1"/><hp:placement place="EACH_COLUMN" beneathText="0"/></hp:footNotePr><hp:endNotePr><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/><hp:noteLine length="14692344" type="SOLID" width="0.12 mm" color="#000000"/><hp:noteSpacing betweenNotes="0" belowLine="567" aboveLine="850"/><hp:numbering type="CONTINUOUS" newNum="1"/><hp:placement place="END_OF_DOCUMENT" beneathText="0"/></hp:endNotePr><hp:pageBorderFill type="BOTH" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill><hp:pageBorderFill type="EVEN" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill><hp:pageBorderFill type="ODD" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill></hp:secPr><hp:ctrl><hp:colPr id="" type="NEWSPAPER" layout="LEFT" colCount="1" sameSz="1" sameGap="0"/></hp:ctrl></hp:run></hp:p>`;
+const SEC_PR = `<hp:p id="1000000001" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:secPr id="" textDirection="HORIZONTAL" spaceColumns="1134" tabStop="8000" tabStopVal="4000" tabStopUnit="HWPUNIT" outlineShapeIDRef="1" memoShapeIDRef="0" textVerticalWidthHead="0" masterPageCnt="0"><hp:grid lineGrid="0" charGrid="0" wonggojiFormat="0"/><hp:startNum pageStartsOn="BOTH" page="0" pic="0" tbl="0" equation="0"/><hp:visibility hideFirstHeader="0" hideFirstFooter="0" hideFirstMasterPage="0" border="SHOW_ALL" fill="SHOW_ALL" hideFirstPageNum="0" hideFirstEmptyLine="0" showLineNumber="0"/><hp:lineNumberShape restartType="0" countBy="0" distance="0" startNumber="0"/><hp:pagePr landscape="WIDELY" width="59528" height="84186" gutterType="LEFT_ONLY"><hp:margin header="4252" footer="4252" gutter="0" left="8504" right="8504" top="5668" bottom="4252"/></hp:pagePr><hp:footNotePr><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/><hp:noteLine length="-1" type="SOLID" width="0.12 mm" color="#000000"/><hp:noteSpacing betweenNotes="283" belowLine="567" aboveLine="850"/><hp:numbering type="CONTINUOUS" newNum="1"/><hp:placement place="EACH_COLUMN" beneathText="0"/></hp:footNotePr><hp:endNotePr><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/><hp:noteLine length="14692344" type="SOLID" width="0.12 mm" color="#000000"/><hp:noteSpacing betweenNotes="0" belowLine="567" aboveLine="850"/><hp:numbering type="CONTINUOUS" newNum="1"/><hp:placement place="END_OF_DOCUMENT" beneathText="0"/></hp:endNotePr><hp:pageBorderFill type="BOTH" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill><hp:pageBorderFill type="EVEN" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill><hp:pageBorderFill type="ODD" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill></hp:secPr><hp:ctrl><hp:colPr id="" type="NEWSPAPER" layout="LEFT" colCount="1" sameSz="1" sameGap="0"/></hp:ctrl><hp:run charPrIDRef="0"><hp:t/></hp:run></hp:p>`;
 
-function buildSection0Xml(rawText: string, formulas: Formula[]): string {
+function buildRuns(line: string): string {
+  const parts = line.split(/(\$[^$]+\$)/g);
+  return parts
+    .map((part) => {
+      if (part.startsWith("$") && part.endsWith("$")) {
+        const hwpScript = latexToHwp(part.slice(1, -1));
+        return `<hp:run charPrIDRef="0"><hp:eqEdit><hc:script>${escapeXml(hwpScript)}</hc:script></hp:eqEdit></hp:run>`;
+      } else if (part.trim()) {
+        return `<hp:run charPrIDRef="0"><hp:t>${escapeXml(part)}</hp:t></hp:run>`;
+      }
+      return "";
+    })
+    .join("");
+}
+
+function buildEndnote(idRef: { value: number }, question: ParsedQuestion): string {
+  if (!question.answer) return "";
+  const content = `답: ${question.answer}${question.explanation ? "  해설: " + question.explanation : ""}`;
+  return `<hp:endnote id="${question.number}" numRef="${question.number}"><hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(content)}</hp:p></hp:endnote>`;
+}
+
+function buildQuestionPara(idRef: { value: number }, question: ParsedQuestion): string {
+  const lines = question.body.split("\n").filter((l) => l.trim());
+  return lines
+    .map((line, i) => {
+      const isLast = i === lines.length - 1;
+      const hasEndnote = isLast && !!question.answer;
+      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line)}${hasEndnote ? `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/></hp:run>` : ""}${hasEndnote ? buildEndnote(idRef, question) : ""}</hp:p>`;
+    })
+    .join("");
+}
+
+function buildSection0Xml(rawText: string, questions: ParsedQuestion[]): string {
   const XMLNS = `xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hp10="http://www.hancom.co.kr/hwpml/2016/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" xmlns:hhs="http://www.hancom.co.kr/hwpml/2011/history" xmlns:hm="http://www.hancom.co.kr/hwpml/2011/master-page" xmlns:hpf="http://www.hancom.co.kr/schema/2011/hpf" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ooxmlchart="http://www.hancom.co.kr/hwpml/2016/ooxmlchart" xmlns:hwpunitchar="http://www.hancom.co.kr/hwpml/2016/HwpUnitChar" xmlns:epub="http://www.idpf.org/2007/ops" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0"`;
 
-  let id = 1000000002;
+  const idRef = { value: 1000000002 };
   const paras: string[] = [];
 
-  for (const line of rawText.split(/\n+/)) {
-    const trimmed = line.trim();
-    if (trimmed.length > 0) {
-      paras.push(`<hp:p id="${id++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="0"><hp:t>${escapeXml(trimmed)}</hp:t></hp:run></hp:p>`);
+  if (questions.length > 0) {
+    for (const q of questions) {
+      paras.push(buildQuestionPara(idRef, q));
     }
-  }
-
-  if (formulas.length > 0) {
-    paras.push(`<hp:p id="${id++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="0"><hp:t></hp:t></hp:run></hp:p>`);
-    for (const f of formulas) {
-      if (f.context.trim()) {
-        paras.push(`<hp:p id="${id++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="0"><hp:t>${escapeXml(f.context.trim())}</hp:t></hp:run></hp:p>`);
-      }
-      paras.push(`<hp:p id="${id++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="0"><hp:t>LaTeX: ${escapeXml(f.latex)}</hp:t></hp:run></hp:p>`);
+  } else {
+    for (const line of rawText.split(/\n/)) {
+      const trimmed = line.trim();
+      paras.push(
+        `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">` +
+        (trimmed ? buildRuns(trimmed) : `<hp:run charPrIDRef="0"><hp:t/></hp:run>`) +
+        `</hp:p>`
+      );
     }
   }
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hs:sec ${XMLNS}>${SEC_PR}${paras.join("")}</hs:sec>`;
 }
 
-export async function buildHwpx(text: string, formulas: Formula[]): Promise<Buffer> {
+export async function buildHwpx(text: string, questions: ParsedQuestion[]): Promise<Buffer> {
   const zip = new JSZip();
   const store = { compression: "STORE" as const, compressionOptions: { level: 0 } };
   const deflate = { compression: "DEFLATE" as const, compressionOptions: { level: 6 } };
@@ -86,7 +117,7 @@ export async function buildHwpx(text: string, formulas: Formula[]): Promise<Buff
   zip.file("mimetype", "application/hwp+zip", store);
   zip.file("version.xml", buildVersionXml(), store);
   zip.file("Contents/header.xml", HEADER_XML, deflate);
-  zip.file("Contents/section0.xml", buildSection0Xml(text, formulas), deflate);
+  zip.file("Contents/section0.xml", buildSection0Xml(text, questions), deflate);
 
   const firstLine = text.split(/\n/).find((l) => l.trim()) ?? "";
   zip.file("Preview/PrvText.txt", firstLine, deflate);

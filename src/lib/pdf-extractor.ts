@@ -1,21 +1,130 @@
-import { PDFParse } from "pdf-parse";
+import Anthropic from "@anthropic-ai/sdk";
 
-export interface PdfContent {
-  text: string;
-  pageCount: number;
+export interface ParsedQuestion {
+  number: number;
+  body: string;
+  answer?: string;
+  explanation?: string;
 }
 
-export async function extractTextFromPdf(buffer: Buffer): Promise<PdfContent> {
-  const parser = new PDFParse({
-    data: new Uint8Array(buffer),
-    verbosity: 0, // suppress pdfjs-dist console output
+export interface PageContent {
+  text: string;
+  isAnswerPage: boolean;
+}
+
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const EXTRACTION_PROMPT = `이 이미지는 수학 시험지 페이지입니다.
+페이지의 모든 텍스트를 순서대로 추출하세요.
+규칙:
+- 마크다운 문법(#, **, --, ## 등) 절대 사용 금지
+- 수식은 LaTeX 형식으로 $...$ 안에 작성 (예: $2x^2 + 3x - 1$)
+- 분수는 \\frac{}{} 사용 (예: $\\frac{1}{2}$)
+- 문제 번호, 선지(①②③④⑤), 조건, 풀이 모두 포함
+- 각 문장/항목은 줄바꿈으로 구분
+- 이미지나 그림은 [그림] 으로 표시
+- 페이지 구분자(-- 1 of N --, 페이지 N 등) 출력 금지`;
+
+const ANSWER_PROMPT = `이 이미지는 수학 시험지 정답/해설 페이지입니다.
+각 문제의 번호, 답, 해설을 추출하세요.
+규칙:
+- 마크다운 문법(#, **, --, ## 등) 절대 사용 금지
+- 수식은 LaTeX 형식으로 $...$ 안에 작성
+- 반드시 아래 형식으로만 출력:
+번호|답|해설
+1|④|2X-B=A-5B에서 2X=A-4B, X=$\\frac{1}{2}$A-2B=...
+2|③|다항식에서 차수가 가장 큰 항인 $2x^3$의 차수가 3이므로...
+- 해설이 없으면 해설 칸 비워도 됨: 1|④|`;
+
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/^---+$/gm, "")
+    .replace(/^--\s*\d+\s*of\s*\d+\s*--$/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function isAnswerPage(text: string): boolean {
+  return /정답|해설|정답보기/.test(text.slice(0, 200));
+}
+
+async function callClaude(base64Pdf: string, prompt: string): Promise<string> {
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: base64Pdf,
+            },
+          },
+          { type: "text", text: prompt },
+        ],
+      },
+    ],
   });
+  return response.content
+    .filter((c): c is Anthropic.TextBlock => c.type === "text")
+    .map((c) => c.text)
+    .join("\n");
+}
 
-  const result = await parser.getText();
-  await parser.destroy();
+export async function extractFromPdf(buffer: Buffer): Promise<PageContent[]> {
+  const base64Pdf = buffer.toString("base64");
 
-  return {
-    text: result.text,
-    pageCount: result.total,
-  };
+  const [rawQuestion, rawAnswer] = await Promise.all([
+    callClaude(base64Pdf, EXTRACTION_PROMPT),
+    callClaude(base64Pdf, ANSWER_PROMPT),
+  ]);
+
+  return [
+    { text: cleanMarkdown(rawQuestion), isAnswerPage: false },
+    { text: rawAnswer, isAnswerPage: true },
+  ];
+}
+
+export function parseQuestions(text: string): ParsedQuestion[] {
+  const questions: ParsedQuestion[] = [];
+  const parts = text.split(/(?=^\d{1,2}[\s\t]+\S)/m);
+  for (const part of parts) {
+    const match = part.match(/^(\d{1,2})[\s\t]+([\s\S]+)/);
+    if (match) {
+      questions.push({
+        number: parseInt(match[1]),
+        body: match[2].trim(),
+      });
+    }
+  }
+  return questions;
+}
+
+export function parseAnswers(
+  answerText: string
+): Map<number, { answer: string; explanation: string }> {
+  const map = new Map<number, { answer: string; explanation: string }>();
+  for (const line of answerText.split("\n")) {
+    const parts = line.split("|");
+    if (parts.length >= 2) {
+      const num = parseInt(parts[0].trim());
+      if (!isNaN(num)) {
+        map.set(num, {
+          answer: parts[1]?.trim() ?? "",
+          explanation: parts[2]?.trim() ?? "",
+        });
+      }
+    }
+  }
+  return map;
 }
