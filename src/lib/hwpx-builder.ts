@@ -77,13 +77,15 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
 function buildEndnote(
   idRef: { value: number },
   endnoteRef: { value: number },
+  eqIdRef: { value: number },
   question: ParsedQuestion
 ): string {
   if (!question.answer) return "";
   const num = endnoteRef.value++;
   const instId = idRef.value++;
   const content = `답: ${question.answer}${question.explanation ? "  해설: " + question.explanation : ""}`;
-  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t> ${escapeXml(content)}</hp:t></hp:run></hp:p></hp:subList></hp:endNote></hp:ctrl><hp:t/></hp:run>`;
+  const contentRuns = buildRuns(content, eqIdRef);
+  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t/></hp:run>${contentRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl><hp:t/></hp:run>`;
 }
 
 function buildQuestionPara(
@@ -95,9 +97,20 @@ function buildQuestionPara(
   const lines = question.body.split("\n").filter((l) => l.trim());
   return lines
     .map((line, i) => {
-      const isLast = i === lines.length - 1;
-      const endnoteRun = isLast ? buildEndnote(idRef, endnoteRef, question) : "";
-      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line, eqIdRef)}${endnoteRun}</hp:p>`;
+      let lineRuns: string;
+      if (i === 0) {
+        const numMatch = line.match(/^(\d{1,2}[\s\t]+)([\s\S]*)/);
+        if (numMatch) {
+          const numRun = `<hp:run charPrIDRef="0"><hp:t>${escapeXml(numMatch[1])}</hp:t></hp:run>`;
+          const endnoteRun = buildEndnote(idRef, endnoteRef, eqIdRef, question);
+          lineRuns = numRun + endnoteRun + buildRuns(numMatch[2], eqIdRef);
+        } else {
+          lineRuns = buildEndnote(idRef, endnoteRef, eqIdRef, question) + buildRuns(line, eqIdRef);
+        }
+      } else {
+        lineRuns = buildRuns(line, eqIdRef);
+      }
+      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${lineRuns}</hp:p>`;
     })
     .join("");
 }
