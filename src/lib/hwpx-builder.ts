@@ -86,7 +86,10 @@ function buildQuestionPara(idRef: { value: number }, eqIdRef: { value: number },
     .map((line, i) => {
       const isLast = i === lines.length - 1;
       const hasEndnote = isLast && !!question.answer;
-      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line, eqIdRef)}${hasEndnote ? `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/></hp:run>` : ""}${hasEndnote ? buildEndnote(idRef, eqIdRef, question) : ""}</hp:p>`;
+      const endnoteRun = hasEndnote
+        ? `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/>${buildEndnote(idRef, eqIdRef, question)}</hp:run>`
+        : "";
+      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line, eqIdRef)}${endnoteRun}</hp:p>`;
     })
     .join("");
 }
