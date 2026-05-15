@@ -64,7 +64,7 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
         return buildEquationRun(eqIdRef.value++, latexToHwp(part.slice(1, -1)));
       } else if (part.trim()) {
         const trimmed = part.trim();
-        if (/^-?\d+(\.\d+)?%?$/.test(trimmed)) {
+        if (/^-?\d+(\.\d+)?%?$/.test(trimmed) || /^[A-Z]$/.test(trimmed)) {
           return buildEquationRun(eqIdRef.value++, trimmed);
         }
         return `<hp:run charPrIDRef="0"><hp:t>${escapeXml(part)}</hp:t></hp:run>`;
@@ -77,7 +77,8 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
 function buildEndnote(idRef: { value: number }, eqIdRef: { value: number }, question: ParsedQuestion): string {
   if (!question.answer) return "";
   const content = `답: ${question.answer}${question.explanation ? "  해설: " + question.explanation : ""}`;
-  return `<hp:endnote id="${question.number}" numRef="${question.number}"><hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(content, eqIdRef)}</hp:p></hp:endnote>`;
+  const endnoteXml = `<hp:endnote id="${question.number}" numRef="${question.number}"><hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(content, eqIdRef)}</hp:p></hp:endnote>`;
+  return `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/>${endnoteXml}</hp:run>`;
 }
 
 function buildQuestionPara(idRef: { value: number }, eqIdRef: { value: number }, question: ParsedQuestion): string {
@@ -85,10 +86,7 @@ function buildQuestionPara(idRef: { value: number }, eqIdRef: { value: number },
   return lines
     .map((line, i) => {
       const isLast = i === lines.length - 1;
-      const hasEndnote = isLast && !!question.answer;
-      const endnoteRun = hasEndnote
-        ? `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/>${buildEndnote(idRef, eqIdRef, question)}</hp:run>`
-        : "";
+      const endnoteRun = isLast ? buildEndnote(idRef, eqIdRef, question) : "";
       return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line, eqIdRef)}${endnoteRun}</hp:p>`;
     })
     .join("");
