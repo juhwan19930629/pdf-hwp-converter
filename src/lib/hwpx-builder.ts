@@ -64,10 +64,10 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
         return buildEquationRun(eqIdRef.value++, latexToHwp(part.slice(1, -1)));
       }
       if (!part.trim()) return "";
-      // 숫자+단위 조합 분리: "12km" → ["", "12", "km"]
-      return part.split(/(\d+\.?\d*)/).map((sub) => {
+      // 소수(\d+\.\d+) 우선 → 정수(\d+) 순으로 분리: "0.5x-0.1" → ["","0.5","x-","0.1",""]
+      return part.split(/(\d+\.\d+|\d+)/).map((sub) => {
         if (!sub) return "";
-        if (/^\d+\.?\d*$/.test(sub)) {
+        if (/^\d+(\.\d+)?$/.test(sub)) {
           return buildEquationRun(eqIdRef.value++, sub);
         }
         if (/^[A-Z]$/.test(sub.trim())) {
@@ -100,24 +100,33 @@ function buildQuestionPara(
   question: ParsedQuestion
 ): string {
   const lines = question.body.split("\n").filter((l) => l.trim());
-  return lines
-    .map((line, i) => {
-      let lineRuns: string;
-      if (i === 0) {
-        const numMatch = line.match(/^(\d{1,2}[\s\t]+)([\s\S]*)/);
-        if (numMatch) {
-          const numRun = `<hp:run charPrIDRef="0"><hp:t>${escapeXml(numMatch[1])}</hp:t></hp:run>`;
-          const endnoteRun = buildEndnote(idRef, endnoteRef, eqIdRef, question);
-          lineRuns = numRun + endnoteRun + buildRuns(numMatch[2], eqIdRef);
-        } else {
-          lineRuns = buildEndnote(idRef, endnoteRef, eqIdRef, question) + buildRuns(line, eqIdRef);
-        }
+  const paras: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let lineRuns: string;
+
+    if (i === 0) {
+      const numMatch = line.match(/^(\d{1,2}[\s\t]+)([\s\S]*)/);
+      if (numMatch) {
+        // 추출 오류로 답/해설이 body 첫 줄에 섞인 경우 제거
+        const bodyRest = numMatch[2].replace(/(답:|해설:)[\s\S]*$/, "").trim();
+        const numRun = `<hp:run charPrIDRef="0"><hp:t>${escapeXml(numMatch[1])}</hp:t></hp:run>`;
+        const endnoteRun = buildEndnote(idRef, endnoteRef, eqIdRef, question);
+        lineRuns = numRun + endnoteRun + (bodyRest ? buildRuns(bodyRest, eqIdRef) : "");
       } else {
-        lineRuns = buildRuns(line, eqIdRef);
+        lineRuns = buildEndnote(idRef, endnoteRef, eqIdRef, question) + buildRuns(line, eqIdRef);
       }
-      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${lineRuns}</hp:p>`;
-    })
-    .join("");
+    } else {
+      // 답/해설로 시작하는 줄은 본문에 출력하지 않음
+      if (/^(답:|해설:)/.test(line.trim())) continue;
+      lineRuns = buildRuns(line, eqIdRef);
+    }
+
+    paras.push(`<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${lineRuns}</hp:p>`);
+  }
+
+  return paras.join("");
 }
 
 function buildSection0Xml(rawText: string, questions: ParsedQuestion[]): string {
