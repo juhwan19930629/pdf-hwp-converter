@@ -51,6 +51,12 @@ function cleanMarkdown(text: string): string {
     .trim();
 }
 
+// 추출된 문제 텍스트에서 정답/해설 섹션이 시작되는 위치부터 잘라냄
+function removeAnswerSection(text: string): string {
+  const idx = text.search(/\n(정답|해설|정답보기)/);
+  return idx !== -1 ? text.slice(0, idx).trim() : text;
+}
+
 export function isAnswerPage(text: string): boolean {
   return /정답|해설|정답보기/.test(text.slice(0, 200));
 }
@@ -91,7 +97,7 @@ export async function extractFromPdf(buffer: Buffer): Promise<PageContent[]> {
   ]);
 
   return [
-    { text: cleanMarkdown(rawQuestion), isAnswerPage: false },
+    { text: removeAnswerSection(cleanMarkdown(rawQuestion)), isAnswerPage: false },
     { text: rawAnswer, isAnswerPage: true },
   ];
 }
@@ -102,6 +108,8 @@ export function parseQuestions(text: string): ParsedQuestion[] {
   for (const part of parts) {
     const match = part.match(/^(\d{1,2})[\s\t]+([\s\S]+)/);
     if (match) {
+      // match[2]가 답 기호(①②③④⑤)로 시작하면 정답 페이지 내용 — 건너뜀
+      if (/^[①②③④⑤]/.test(match[2].trim())) continue;
       questions.push({
         number: parseInt(match[1]),
         body: match[0].trim(),
