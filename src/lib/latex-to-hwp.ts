@@ -25,6 +25,10 @@ export function latexToHwp(latex: string): string {
     .replace(/\\delta/g, "delta")
     .replace(/\\pi/g, "pi")
     .replace(/\\/g, "")
+    .replace(/(\w)\^\{([^}]+)\}/g, "$1 ^{$2}")
+    .replace(/(\w)\^(\w)/g, "$1 ^{$2}")
+    .replace(/(\w)_\{([^}]+)\}/g, "$1 _{$2}")
+    .replace(/(\w)_(\w)/g, "$1 _{$2}")
     .trim();
 }
 

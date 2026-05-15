@@ -52,13 +52,14 @@ function buildSourceScriptsJs(): string {
 
 const SEC_PR = `<hp:p id="1000000001" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:secPr id="" textDirection="HORIZONTAL" spaceColumns="1134" tabStop="8000" tabStopVal="4000" tabStopUnit="HWPUNIT" outlineShapeIDRef="1" memoShapeIDRef="0" textVerticalWidthHead="0" masterPageCnt="0"><hp:grid lineGrid="0" charGrid="0" wonggojiFormat="0"/><hp:startNum pageStartsOn="BOTH" page="0" pic="0" tbl="0" equation="0"/><hp:visibility hideFirstHeader="0" hideFirstFooter="0" hideFirstMasterPage="0" border="SHOW_ALL" fill="SHOW_ALL" hideFirstPageNum="0" hideFirstEmptyLine="0" showLineNumber="0"/><hp:lineNumberShape restartType="0" countBy="0" distance="0" startNumber="0"/><hp:pagePr landscape="WIDELY" width="59528" height="84186" gutterType="LEFT_ONLY"><hp:margin header="4252" footer="4252" gutter="0" left="8504" right="8504" top="5668" bottom="4252"/></hp:pagePr><hp:footNotePr><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/><hp:noteLine length="-1" type="SOLID" width="0.12 mm" color="#000000"/><hp:noteSpacing betweenNotes="283" belowLine="567" aboveLine="850"/><hp:numbering type="CONTINUOUS" newNum="1"/><hp:placement place="EACH_COLUMN" beneathText="0"/></hp:footNotePr><hp:endNotePr><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/><hp:noteLine length="14692344" type="SOLID" width="0.12 mm" color="#000000"/><hp:noteSpacing betweenNotes="0" belowLine="567" aboveLine="850"/><hp:numbering type="CONTINUOUS" newNum="1"/><hp:placement place="END_OF_DOCUMENT" beneathText="0"/></hp:endNotePr><hp:pageBorderFill type="BOTH" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill><hp:pageBorderFill type="EVEN" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill><hp:pageBorderFill type="ODD" borderFillIDRef="1" textBorder="PAPER" headerInside="0" footerInside="0" fillArea="PAPER"><hp:offset left="1417" right="1417" top="1417" bottom="1417"/></hp:pageBorderFill></hp:secPr><hp:ctrl><hp:colPr id="" type="NEWSPAPER" layout="LEFT" colCount="1" sameSz="1" sameGap="0"/></hp:ctrl><hp:run charPrIDRef="0"><hp:t/></hp:run></hp:p>`;
 
-function buildRuns(line: string): string {
+function buildRuns(line: string, eqIdRef: { value: number }): string {
   const parts = line.split(/(\$[^$]+\$)/g);
   return parts
     .map((part) => {
       if (part.startsWith("$") && part.endsWith("$")) {
         const hwpScript = latexToHwp(part.slice(1, -1));
-        return `<hp:run charPrIDRef="0"><hp:eqEdit><hc:script>${escapeXml(hwpScript)}</hc:script></hp:eqEdit></hp:run>`;
+        const eqId = eqIdRef.value++;
+        return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="10155" widthRelTo="ABSOLUTE" height="1163" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/><hp:outMargin left="56" right="56" top="0" bottom="0"/><hp:shapeComment>수식입니다.</hp:shapeComment><hp:script>${escapeXml(hwpScript)}</hp:script></hp:equation><hp:t/></hp:run>`;
       } else if (part.trim()) {
         return `<hp:run charPrIDRef="0"><hp:t>${escapeXml(part)}</hp:t></hp:run>`;
       }
@@ -67,19 +68,19 @@ function buildRuns(line: string): string {
     .join("");
 }
 
-function buildEndnote(idRef: { value: number }, question: ParsedQuestion): string {
+function buildEndnote(idRef: { value: number }, eqIdRef: { value: number }, question: ParsedQuestion): string {
   if (!question.answer) return "";
   const content = `답: ${question.answer}${question.explanation ? "  해설: " + question.explanation : ""}`;
-  return `<hp:endnote id="${question.number}" numRef="${question.number}"><hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(content)}</hp:p></hp:endnote>`;
+  return `<hp:endnote id="${question.number}" numRef="${question.number}"><hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(content, eqIdRef)}</hp:p></hp:endnote>`;
 }
 
-function buildQuestionPara(idRef: { value: number }, question: ParsedQuestion): string {
+function buildQuestionPara(idRef: { value: number }, eqIdRef: { value: number }, question: ParsedQuestion): string {
   const lines = question.body.split("\n").filter((l) => l.trim());
   return lines
     .map((line, i) => {
       const isLast = i === lines.length - 1;
       const hasEndnote = isLast && !!question.answer;
-      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line)}${hasEndnote ? `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/></hp:run>` : ""}${hasEndnote ? buildEndnote(idRef, question) : ""}</hp:p>`;
+      return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line, eqIdRef)}${hasEndnote ? `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/></hp:run>` : ""}${hasEndnote ? buildEndnote(idRef, eqIdRef, question) : ""}</hp:p>`;
     })
     .join("");
 }
@@ -88,18 +89,19 @@ function buildSection0Xml(rawText: string, questions: ParsedQuestion[]): string 
   const XMLNS = `xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hp10="http://www.hancom.co.kr/hwpml/2016/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" xmlns:hhs="http://www.hancom.co.kr/hwpml/2011/history" xmlns:hm="http://www.hancom.co.kr/hwpml/2011/master-page" xmlns:hpf="http://www.hancom.co.kr/schema/2011/hpf" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf/" xmlns:ooxmlchart="http://www.hancom.co.kr/hwpml/2016/ooxmlchart" xmlns:hwpunitchar="http://www.hancom.co.kr/hwpml/2016/HwpUnitChar" xmlns:epub="http://www.idpf.org/2007/ops" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0"`;
 
   const idRef = { value: 1000000002 };
+  const eqIdRef = { value: 1 };
   const paras: string[] = [];
 
   if (questions.length > 0) {
     for (const q of questions) {
-      paras.push(buildQuestionPara(idRef, q));
+      paras.push(buildQuestionPara(idRef, eqIdRef, q));
     }
   } else {
     for (const line of rawText.split(/\n/)) {
       const trimmed = line.trim();
       paras.push(
         `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">` +
-        (trimmed ? buildRuns(trimmed) : `<hp:run charPrIDRef="0"><hp:t/></hp:run>`) +
+        (trimmed ? buildRuns(trimmed, eqIdRef) : `<hp:run charPrIDRef="0"><hp:t/></hp:run>`) +
         `</hp:p>`
       );
     }
