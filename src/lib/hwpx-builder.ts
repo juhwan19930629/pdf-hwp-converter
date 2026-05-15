@@ -64,7 +64,7 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
         return buildEquationRun(eqIdRef.value++, latexToHwp(part.slice(1, -1)));
       } else if (part.trim()) {
         const trimmed = part.trim();
-        if (/^\d+(\.\d+)?$/.test(trimmed)) {
+        if (/^-?\d+(\.\d+)?%?$/.test(trimmed)) {
           return buildEquationRun(eqIdRef.value++, trimmed);
         }
         return `<hp:run charPrIDRef="0"><hp:t>${escapeXml(part)}</hp:t></hp:run>`;
