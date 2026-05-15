@@ -54,8 +54,10 @@ const SEC_PR = `<hp:p id="1000000001" paraPrIDRef="0" styleIDRef="0" pageBreak="
 
 function buildEquationRun(eqId: number, script: string): string {
   const hasFrac = /\\frac|{[^}]+ over [^}]+}/.test(script);
-  const width = Math.min(Math.max(script.length * 800, 10155), 100000);
-  const height = hasFrac ? 2800 : 1163;
+  const len = script.length;
+  const baseWidth = len <= 3 ? 6000 : len <= 10 ? 10155 : len <= 25 ? 20000 : 40000;
+  const width = hasFrac ? Math.floor(baseWidth * 1.5) : baseWidth;
+  const height = hasFrac ? 2400 : 1163;
   const affectLSpacing = hasFrac ? 1 : 0;
   return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="${width}" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1" affectLSpacing="${affectLSpacing}" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/><hp:outMargin left="56" right="56" top="0" bottom="0"/><hp:shapeComment>수식입니다.</hp:shapeComment><hp:script>${escapeXml(script)}</hp:script></hp:equation><hp:t/></hp:run>`;
 }
