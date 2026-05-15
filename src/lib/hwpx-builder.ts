@@ -74,19 +74,29 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
     .join("");
 }
 
-function buildEndnote(idRef: { value: number }, eqIdRef: { value: number }, question: ParsedQuestion): string {
+function buildEndnote(
+  idRef: { value: number },
+  endnoteRef: { value: number },
+  question: ParsedQuestion
+): string {
   if (!question.answer) return "";
+  const num = endnoteRef.value++;
+  const instId = idRef.value++;
   const content = `답: ${question.answer}${question.explanation ? "  해설: " + question.explanation : ""}`;
-  const endnoteXml = `<hp:endnote id="${question.number}" numRef="${question.number}"><hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(content, eqIdRef)}</hp:p></hp:endnote>`;
-  return `<hp:run charPrIDRef="0"><hp:autoNum type="ENDNOTE" numRef="${question.number}"/>${endnoteXml}</hp:run>`;
+  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t> ${escapeXml(content)}</hp:t></hp:run></hp:p></hp:subList></hp:endNote></hp:ctrl><hp:t/></hp:run>`;
 }
 
-function buildQuestionPara(idRef: { value: number }, eqIdRef: { value: number }, question: ParsedQuestion): string {
+function buildQuestionPara(
+  idRef: { value: number },
+  eqIdRef: { value: number },
+  endnoteRef: { value: number },
+  question: ParsedQuestion
+): string {
   const lines = question.body.split("\n").filter((l) => l.trim());
   return lines
     .map((line, i) => {
       const isLast = i === lines.length - 1;
-      const endnoteRun = isLast ? buildEndnote(idRef, eqIdRef, question) : "";
+      const endnoteRun = isLast ? buildEndnote(idRef, endnoteRef, question) : "";
       return `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${buildRuns(line, eqIdRef)}${endnoteRun}</hp:p>`;
     })
     .join("");
@@ -97,11 +107,12 @@ function buildSection0Xml(rawText: string, questions: ParsedQuestion[]): string 
 
   const idRef = { value: 1000000002 };
   const eqIdRef = { value: 1 };
+  const endnoteRef = { value: 1 };
   const paras: string[] = [];
 
   if (questions.length > 0) {
     for (const q of questions) {
-      paras.push(buildQuestionPara(idRef, eqIdRef, q));
+      paras.push(buildQuestionPara(idRef, eqIdRef, endnoteRef, q));
     }
   } else {
     for (const line of rawText.split(/\n/)) {
