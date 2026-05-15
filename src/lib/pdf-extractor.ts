@@ -16,13 +16,14 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const EXTRACTION_PROMPT = `이 이미지는 수학 시험지 페이지입니다.
-페이지의 모든 텍스트를 순서대로 추출하세요.
+const EXTRACTION_PROMPT = `이 PDF는 수학 시험지입니다.
+문제 페이지의 텍스트만 순서대로 추출하세요.
 규칙:
+- "정답", "해설", "정답보기" 텍스트가 등장하는 페이지 또는 섹션부터는 추출하지 마세요
 - 마크다운 문법(#, **, --, ## 등) 절대 사용 금지
 - 수식은 LaTeX 형식으로 $...$ 안에 작성 (예: $2x^2 + 3x - 1$)
 - 분수는 \\frac{}{} 사용 (예: $\\frac{1}{2}$)
-- 문제 번호, 선지(①②③④⑤), 조건, 풀이 모두 포함
+- 문제 번호, 선지(①②③④⑤), 조건 포함 (정답·해설·풀이는 제외)
 - 각 문장/항목은 줄바꿈으로 구분
 - 이미지나 그림은 [그림] 으로 표시
 - 페이지 구분자(-- 1 of N --, 페이지 N 등) 출력 금지`;
@@ -103,7 +104,7 @@ export function parseQuestions(text: string): ParsedQuestion[] {
     if (match) {
       questions.push({
         number: parseInt(match[1]),
-        body: match[2].trim(),
+        body: match[0].trim(),
       });
     }
   }
