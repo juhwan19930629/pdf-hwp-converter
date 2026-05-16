@@ -91,16 +91,6 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
     }
   }
 
-  // Bug 1: 수식 바로 뒤 % 토큰을 수식 스크립트에 포함 (공백 포함 "30 %")
-  for (let i = tokens.length - 1; i >= 1; i--) {
-    const tok = tokens[i];
-    const prev = tokens[i - 1];
-    if (tok.type === "text" && tok.value.trim() === "%" && prev.type === "eq") {
-      prev.script += " %";
-      tokens.splice(i, 1);
-    }
-  }
-
   let result = "";
   let prevWasEq = false;
   for (const token of tokens) {
@@ -126,9 +116,12 @@ function buildEndnote(
   if (!question.answer) return "";
   const num = endnoteRef.value++;
   const instId = idRef.value++;
-  const content = `답: ${question.answer}${question.explanation ? "  해설: " + question.explanation : ""}`;
-  const contentRuns = buildRuns(content, eqIdRef);
-  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t/></hp:run>${contentRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
+  // 답은 고정 텍스트, 해설만 buildRuns로 수식 변환
+  const answerRun = `<hp:run charPrIDRef="0"><hp:t>${escapeXml(`답: ${question.answer}`)}</hp:t></hp:run>`;
+  const explanationRuns = question.explanation
+    ? `<hp:run charPrIDRef="0"><hp:t>  해설: </hp:t></hp:run>` + buildRuns(question.explanation, eqIdRef)
+    : "";
+  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t/></hp:run>${answerRun}${explanationRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
 }
 
 function buildQuestionPara(
