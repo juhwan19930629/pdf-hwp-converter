@@ -24,6 +24,8 @@ export function latexToHwp(latex: string): string {
     .replace(/\\gamma/g, "gamma")
     .replace(/\\delta/g, "delta")
     .replace(/\\pi/g, "pi")
+    .replace(/\\square/g, "□")
+    .replace(/\\triangle/g, "△")
     .replace(/\\/g, "")
     .replace(/(\w)\^\{([^}]+)\}/g, "$1 ^{$2}")
     .replace(/(\w)\^(\w)/g, "$1 ^{$2}")
