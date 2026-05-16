@@ -125,7 +125,7 @@ function buildEndnote(
   const instId = idRef.value++;
   const content = `답: ${question.answer}${question.explanation ? "  해설: " + question.explanation : ""}`;
   const contentRuns = buildRuns(content, eqIdRef);
-  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t/></hp:run>${contentRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl><hp:t/></hp:run>`;
+  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t/></hp:run>${contentRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
 }
 
 function buildQuestionPara(
