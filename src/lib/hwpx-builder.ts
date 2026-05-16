@@ -54,7 +54,7 @@ const SEC_PR = `<hp:p id="1000000001" paraPrIDRef="0" styleIDRef="0" pageBreak="
 
 function buildEquationRun(eqId: number, script: string): string {
   const height = /over|frac/.test(script) ? 2600 : 1163;
-  return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="10155" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/><hp:outMargin left="0" right="0" top="0" bottom="0"/><hp:shapeComment>수식입니다.</hp:shapeComment><hp:script>${escapeXml(script)}</hp:script></hp:equation></hp:run>`;
+  return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="10155" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1"/><hp:script>${escapeXml(script)}</hp:script></hp:equation></hp:run>`;
 }
 
 function buildRuns(line: string, eqIdRef: { value: number }): string {
