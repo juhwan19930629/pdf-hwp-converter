@@ -54,28 +54,42 @@ const SEC_PR = `<hp:p id="1000000001" paraPrIDRef="0" styleIDRef="0" pageBreak="
 
 function buildEquationRun(eqId: number, script: string): string {
   const height = /over|frac/.test(script) ? 2600 : 1163;
-  return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="10155" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/><hp:outMargin left="0" right="0" top="0" bottom="0"/><hp:shapeComment>수식입니다.</hp:shapeComment><hp:script>${escapeXml(script)}</hp:script></hp:equation><hp:t/></hp:run>`;
+  return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="10155" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/><hp:outMargin left="0" right="0" top="0" bottom="0"/><hp:shapeComment>수식입니다.</hp:shapeComment><hp:script>${escapeXml(script)}</hp:script></hp:equation></hp:run>`;
 }
 
 function buildRuns(line: string, eqIdRef: { value: number }): string {
-  const parts = line.split(/(\$[^$]+\$)/g);
-  return parts
-    .map((part) => {
-      if (part.startsWith("$") && part.endsWith("$")) {
-        return buildEquationRun(eqIdRef.value++, latexToHwp(part.slice(1, -1)));
-      }
-      if (!part.trim()) return "";
-      // 소수/정수/대문자/소문자%(lookahead) 토큰 분리
-      // "A 가게" → ["","A"," 가게"], "a%" → ["","a","%"], "12km" → ["","12","km"]
-      return part.split(/(\d+\.\d+|\d+|[A-Z]|[a-z](?=%))/).map((sub) => {
-        if (!sub) return "";
+  type Token = { type: "eq"; script: string } | { type: "text"; value: string };
+  const tokens: Token[] = [];
+
+  for (const part of line.split(/(\$[^$]+\$)/g)) {
+    if (part.startsWith("$") && part.endsWith("$")) {
+      tokens.push({ type: "eq", script: latexToHwp(part.slice(1, -1)) });
+    } else if (part.trim()) {
+      for (const sub of part.split(/(\d+\.\d+|\d+|[A-Z]|[a-z](?=%))/)) {
+        if (!sub) continue;
         if (/^\d+(\.\d+)?$/.test(sub) || /^[a-zA-Z]$/.test(sub.trim())) {
-          return buildEquationRun(eqIdRef.value++, sub.trim());
+          tokens.push({ type: "eq", script: sub.trim() });
+        } else {
+          tokens.push({ type: "text", value: sub });
         }
-        return `<hp:run charPrIDRef="0"><hp:t>${escapeXml(sub)}</hp:t></hp:run>`;
-      }).join("");
-    })
-    .join("");
+      }
+    }
+  }
+
+  let result = "";
+  let prevWasEq = false;
+  for (const token of tokens) {
+    if (token.type === "eq") {
+      result += buildEquationRun(eqIdRef.value++, token.script);
+      prevWasEq = true;
+    } else {
+      // 수식 바로 뒤 텍스트의 앞 공백 1개 제거
+      const text = prevWasEq && token.value.startsWith(" ") ? token.value.slice(1) : token.value;
+      if (text) result += `<hp:run charPrIDRef="0"><hp:t>${escapeXml(text)}</hp:t></hp:run>`;
+      prevWasEq = false;
+    }
+  }
+  return result;
 }
 
 function buildEndnote(
