@@ -63,7 +63,19 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
 
   for (const part of line.split(/(\$[^$]+\$)/g)) {
     if (part.startsWith("$") && part.endsWith("$")) {
-      tokens.push({ type: "eq", script: latexToHwp(part.slice(1, -1)) });
+      const script = latexToHwp(part.slice(1, -1));
+      // Bug 2: 50자 초과 수식은 = 기준으로 분리
+      if (script.length > 50) {
+        for (const seg of script.split(/(\s*=\s*)/)) {
+          if (/^\s*=\s*$/.test(seg)) {
+            tokens.push({ type: "text", value: "=" });
+          } else if (seg.trim()) {
+            tokens.push({ type: "eq", script: seg.trim() });
+          }
+        }
+      } else {
+        tokens.push({ type: "eq", script });
+      }
     } else if (part.trim()) {
       for (const sub of part.split(/(\d+\.\d+|\d+|[A-Z]|[a-z](?=%))/)) {
         if (!sub) continue;
@@ -73,6 +85,16 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
           tokens.push({ type: "text", value: sub });
         }
       }
+    }
+  }
+
+  // Bug 1: 수식 바로 뒤 % 토큰을 수식 스크립트에 포함 (공백 포함 "30 %")
+  for (let i = tokens.length - 1; i >= 1; i--) {
+    const tok = tokens[i];
+    const prev = tokens[i - 1];
+    if (tok.type === "text" && tok.value.trim() === "%" && prev.type === "eq") {
+      prev.script += " %";
+      tokens.splice(i, 1);
     }
   }
 
