@@ -80,7 +80,7 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
         tokens.push({ type: "eq", script });
       }
     } else if (part.trim()) {
-      for (const sub of part.split(/(\d+\.\d+|\d+|[A-Z]+|[a-z](?=%))/)) {
+      for (const sub of part.split(/(\d+\.\d+|\d+|[A-Z]+|[a-z](?=%)|%)/)) {
         if (!sub) continue;
         if (/^\d+(\.\d+)?$/.test(sub) || /^[a-zA-Z]+$/.test(sub.trim())) {
           tokens.push({ type: "eq", script: sub.trim() });
