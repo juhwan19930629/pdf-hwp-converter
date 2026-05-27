@@ -116,8 +116,7 @@ function buildEndnote(
   if (!question.answer) return "";
   const num = endnoteRef.value++;
   const instId = idRef.value++;
-  // 답은 고정 텍스트, 해설만 buildRuns로 수식 변환
-  const answerRun = `<hp:run charPrIDRef="0"><hp:t>${escapeXml(`답: ${question.answer}`)}</hp:t></hp:run>`;
+  const answerRun = `<hp:run charPrIDRef="0"><hp:t>답: </hp:t></hp:run>` + buildRuns(question.answer, eqIdRef);
   const explanationRuns = question.explanation
     ? `<hp:run charPrIDRef="0"><hp:t>  해설: </hp:t></hp:run>` + buildRuns(question.explanation, eqIdRef)
     : "";
