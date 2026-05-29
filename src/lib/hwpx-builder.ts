@@ -54,10 +54,13 @@ const SEC_PR = `<hp:p id="1000000001" paraPrIDRef="0" styleIDRef="0" pageBreak="
 
 function buildEquationRun(eqId: number, script: string): string {
   const hasFrac = /over|frac/.test(script);
-  const baseWidth = Math.max(750, script.length * 800);
+  const isShort = script.length <= 3;
+  const baseWidth = Math.max(isShort ? 500 : 750, script.length * (isShort ? 500 : 800));
   const width = hasFrac ? Math.round(baseWidth * 1.5) : baseWidth;
   const height = hasFrac ? 2000 : 975;
-  return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="${width}" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1"/><hp:outMargin left="56" right="56" top="0" bottom="0"/><hp:script>${escapeXml(script)}</hp:script></hp:equation></hp:run>`;
+  // treatAsChar="1" ensures inline flow; smaller margin for single-char variables (x, y, a, b...)
+  const margin = isShort ? 0 : 56;
+  return `<hp:run charPrIDRef="0"><hp:equation id="${eqId}" version="Equation Version 60" baseLine="89" font="HYhwpEQ" textColor="#000000" baseUnit="1000" lineMode="CHAR"><hp:sz width="${width}" widthRelTo="ABSOLUTE" height="${height}" heightRelTo="ABSOLUTE" protect="0"/><hp:pos treatAsChar="1"/><hp:outMargin left="${margin}" right="${margin}" top="0" bottom="0"/><hp:script>${escapeXml(script)}</hp:script></hp:equation></hp:run>`;
 }
 
 function buildRuns(line: string, eqIdRef: { value: number }): string {
@@ -73,6 +76,7 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
         continue;
       }
       const script = latexToHwp(inner);
+      if (!script) continue;
       // Extract trailing multi-letter units so they render as plain text
       const unitMatch = script.match(/^(.*\d)\s*(km\/h|m\/s|km|cm|mm|kg)$/);
       if (unitMatch && unitMatch[1].trim()) {
@@ -134,7 +138,17 @@ function buildQuestionPara(
   endnoteRef: { value: number },
   question: ParsedQuestion
 ): string {
-  const lines = question.body.split("\n").filter((l) => l.trim());
+  const rawLines = question.body.split("\n").filter((l) => l.trim());
+  // Merge orphaned choice symbol lines (e.g. "①\n-4" → "① -4")
+  const lines: string[] = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    if (/^[①②③④⑤]\s*$/.test(rawLines[i].trim()) && i + 1 < rawLines.length) {
+      lines.push(rawLines[i].trimEnd() + " " + rawLines[i + 1].trim());
+      i++;
+    } else {
+      lines.push(rawLines[i]);
+    }
+  }
   const paras: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {

@@ -26,6 +26,7 @@ const EXTRACTION_PROMPT = `이 PDF는 수학 시험지입니다.
 - 수식 내 인식이 불확실한 문자도 최대한 추측하여 LaTeX로 표현하세요. 절대로 §, □, ?, 빈칸 등 대체 문자를 사용하지 마세요.
 - 인식 불가 기호는 반드시 \\square 로 표기하세요 (§ 사용 금지)
 - 문제 번호, 선지(①②③④⑤), 조건 포함 (정답·해설·풀이는 제외)
+- 선지 기호(①②③④⑤)와 그 뒤의 값·수식은 반드시 같은 줄에 출력하세요 (예: ① $-4$  ② $-2$  ③ $0$  ④ $2$  ⑤ $4$)
 - 각 문장/항목은 줄바꿈으로 구분
 - 이미지나 그림은 [그림] 으로 표시
 - 페이지 구분자(-- 1 of N --, 페이지 N 등) 출력 금지`;
@@ -133,19 +134,21 @@ export function parseAnswers(
 ): Map<number, { answer: string; explanation: string }> {
   const map = new Map<number, { answer: string; explanation: string }>();
   for (const line of answerText.split("\n")) {
-    // Primary format: "1|④|해설..."
     const pipeParts = line.split("|");
     if (pipeParts.length >= 2) {
-      const num = parseInt(pipeParts[0].trim());
-      if (!isNaN(num)) {
-        map.set(num, {
-          answer: pipeParts[1]?.trim() ?? "",
-          explanation: pipeParts[2]?.trim() ?? "",
-        });
+      // Markdown table rows start with | so pipeParts[0] is ""; shift by 1 in that case
+      const startIdx = pipeParts[0].trim() === "" ? 1 : 0;
+      const num = parseInt(pipeParts[startIdx]?.trim() ?? "");
+      if (!isNaN(num) && num > 0) {
+        const answer = pipeParts[startIdx + 1]?.trim() ?? "";
+        const explanation = pipeParts[startIdx + 2]?.trim() ?? "";
+        // Skip markdown separator rows like "---|---|---"
+        if (/^[-:]+$/.test(answer)) continue;
+        map.set(num, { answer, explanation });
         continue;
       }
     }
-    // Fallback: "1. ④ 해설..." or "1) ④ 해설..." or "1 ④ ..."
+    // Fallback: "1. ④ 해설..." or "1) ④ 해설..."
     const altMatch = line.match(/^(\d{1,2})[.)]\s*([①②③④⑤])\s*(.*)/);
     if (altMatch) {
       const num = parseInt(altMatch[1]);
