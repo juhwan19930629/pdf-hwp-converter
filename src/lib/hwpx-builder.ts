@@ -115,21 +115,34 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
   return result;
 }
 
-function buildEndnote(
-  idRef: { value: number },
-  endnoteRef: { value: number },
-  eqIdRef: { value: number },
-  question: ParsedQuestion
+// 실제 working HWPX 파일 분석 결과에 맞춘 인라인 미주 구조
+function buildEndnoteInline(
+  num: number,
+  answer: string,
+  explanation: string,
+  instId: number,
+  eqIdRef: { value: number }
 ): string {
-  if (!question.answer) return "";
-  const num = endnoteRef.value++;
-  const instId = idRef.value++;
-  const innerParaId = idRef.value++;
-  const answerRun = `<hp:run charPrIDRef="0"><hp:t>답: </hp:t></hp:run>` + buildRuns(question.answer, eqIdRef);
-  const explanationRuns = question.explanation
-    ? `<hp:run charPrIDRef="0"><hp:t>  해설: </hp:t></hp:run>` + buildRuns(question.explanation, eqIdRef)
+  const answerRuns =
+    `<hp:run charPrIDRef="0"><hp:t>답: </hp:t></hp:run>` +
+    buildRuns(answer, eqIdRef);
+  const explanationRuns = explanation
+    ? `<hp:run charPrIDRef="0"><hp:t>  해설: </hp:t></hp:run>` +
+      buildRuns(explanation, eqIdRef)
     : "";
-  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="${innerParaId}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl></hp:run>${answerRun}${explanationRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
+  return (
+    `<hp:run charPrIDRef="0"><hp:ctrl>` +
+    `<hp:endNote number="${num}" suffixChar="41" instId="${instId}">` +
+    `<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">` +
+    `<hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0">` +
+    `<hp:run charPrIDRef="3"><hp:ctrl>` +
+    `<hp:autoNum num="${num}" numType="ENDNOTE">` +
+    `<hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/>` +
+    `</hp:autoNum></hp:ctrl><hp:t/></hp:run>` +
+    answerRuns +
+    explanationRuns +
+    `</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`
+  );
 }
 
 function buildQuestionPara(
@@ -149,33 +162,47 @@ function buildQuestionPara(
       lines.push(rawLines[i]);
     }
   }
-  const paras: string[] = [];
 
+  // 줄별 run 조립 (답:/해설: 줄은 본문에서 제외)
+  const lineRunsList: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    let lineRuns: string;
-
+    if (i > 0 && /^(답:|해설:)/.test(line.trim())) continue;
+    let runs: string;
     if (i === 0) {
       const numMatch = line.match(/^(\d{1,2}[\s\t]+)([\s\S]*)/);
       if (numMatch) {
-        // 추출 오류로 답/해설이 body 첫 줄에 섞인 경우 제거
         const bodyRest = numMatch[2].replace(/(답:|해설:)[\s\S]*$/, "").trim();
         const numRun = `<hp:run charPrIDRef="0"><hp:t>${escapeXml(numMatch[1])}</hp:t></hp:run>`;
-        const endnoteRun = buildEndnote(idRef, endnoteRef, eqIdRef, question);
-        lineRuns = numRun + endnoteRun + (bodyRest ? buildRuns(bodyRest, eqIdRef) : "");
+        runs = numRun + (bodyRest ? buildRuns(bodyRest, eqIdRef) : "");
       } else {
-        lineRuns = buildEndnote(idRef, endnoteRef, eqIdRef, question) + buildRuns(line, eqIdRef);
+        runs = buildRuns(line, eqIdRef);
       }
     } else {
-      // 답/해설로 시작하는 줄은 본문에 출력하지 않음
-      if (/^(답:|해설:)/.test(line.trim())) continue;
-      lineRuns = buildRuns(line, eqIdRef);
+      runs = buildRuns(line, eqIdRef);
     }
-
-    paras.push(`<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${lineRuns}</hp:p>`);
+    lineRunsList.push(runs);
   }
 
-  return paras.join("");
+  // 인라인 미주를 마지막 줄 끝에 삽입
+  if (question.answer && lineRunsList.length > 0) {
+    const num = endnoteRef.value++;
+    const instId = idRef.value++;
+    lineRunsList[lineRunsList.length - 1] += buildEndnoteInline(
+      num,
+      question.answer,
+      question.explanation ?? "",
+      instId,
+      eqIdRef
+    );
+  }
+
+  return lineRunsList
+    .map(
+      (runs) =>
+        `<hp:p id="${idRef.value++}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">${runs}</hp:p>`
+    )
+    .join("");
 }
 
 function buildSection0Xml(rawText: string, questions: ParsedQuestion[]): string {
