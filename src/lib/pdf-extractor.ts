@@ -133,13 +133,26 @@ export function parseAnswers(
 ): Map<number, { answer: string; explanation: string }> {
   const map = new Map<number, { answer: string; explanation: string }>();
   for (const line of answerText.split("\n")) {
-    const parts = line.split("|");
-    if (parts.length >= 2) {
-      const num = parseInt(parts[0].trim());
+    // Primary format: "1|④|해설..."
+    const pipeParts = line.split("|");
+    if (pipeParts.length >= 2) {
+      const num = parseInt(pipeParts[0].trim());
       if (!isNaN(num)) {
         map.set(num, {
-          answer: parts[1]?.trim() ?? "",
-          explanation: parts[2]?.trim() ?? "",
+          answer: pipeParts[1]?.trim() ?? "",
+          explanation: pipeParts[2]?.trim() ?? "",
+        });
+        continue;
+      }
+    }
+    // Fallback: "1. ④ 해설..." or "1) ④ 해설..." or "1 ④ ..."
+    const altMatch = line.match(/^(\d{1,2})[.)]\s*([①②③④⑤])\s*(.*)/);
+    if (altMatch) {
+      const num = parseInt(altMatch[1]);
+      if (!isNaN(num) && !map.has(num)) {
+        map.set(num, {
+          answer: altMatch[2],
+          explanation: altMatch[3]?.trim() ?? "",
         });
       }
     }

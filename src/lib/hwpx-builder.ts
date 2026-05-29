@@ -66,9 +66,20 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
 
   for (const part of line.split(/(\$[^$]+\$)/g)) {
     if (part.startsWith("$") && part.endsWith("$")) {
-      const script = latexToHwp(part.slice(1, -1));
-      // Bug 2: 50자 초과 수식은 = 기준으로 분리
-      if (script.length > 50) {
+      const inner = part.slice(1, -1).trim();
+      // \circ is a Korean exam choice bullet — treat as plain text
+      if (/^\\circ$/.test(inner)) {
+        tokens.push({ type: "text", value: "○" });
+        continue;
+      }
+      const script = latexToHwp(inner);
+      // Extract trailing multi-letter units so they render as plain text
+      const unitMatch = script.match(/^(.*\d)\s*(km\/h|m\/s|km|cm|mm|kg)$/);
+      if (unitMatch && unitMatch[1].trim()) {
+        tokens.push({ type: "eq", script: unitMatch[1].trim() });
+        tokens.push({ type: "text", value: unitMatch[2] });
+      } else if (script.length > 50) {
+        // 50자 초과 수식은 = 기준으로 분리
         for (const seg of script.split(/(\s*=\s*)/)) {
           if (/^\s*=\s*$/.test(seg)) {
             tokens.push({ type: "text", value: "=" });
@@ -109,11 +120,12 @@ function buildEndnote(
   if (!question.answer) return "";
   const num = endnoteRef.value++;
   const instId = idRef.value++;
+  const innerParaId = idRef.value++;
   const answerRun = `<hp:run charPrIDRef="0"><hp:t>답: </hp:t></hp:run>` + buildRuns(question.answer, eqIdRef);
   const explanationRuns = question.explanation
     ? `<hp:run charPrIDRef="0"><hp:t>  해설: </hp:t></hp:run>` + buildRuns(question.explanation, eqIdRef)
     : "";
-  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl></hp:run>${answerRun}${explanationRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
+  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="${innerParaId}" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl></hp:run>${answerRun}${explanationRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
 }
 
 function buildQuestionPara(
