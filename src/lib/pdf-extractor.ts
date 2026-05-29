@@ -23,6 +23,8 @@ const EXTRACTION_PROMPT = `이 PDF는 수학 시험지입니다.
 - 마크다운 문법(#, **, --, ## 등) 절대 사용 금지
 - 수식은 LaTeX 형식으로 $...$ 안에 작성 (예: $2x^2 + 3x - 1$)
 - 분수는 \\frac{}{} 사용 (예: $\\frac{1}{2}$)
+- 수식 내 인식이 불확실한 문자도 최대한 추측하여 LaTeX로 표현하세요. 절대로 §, □, ?, 빈칸 등 대체 문자를 사용하지 마세요.
+- 인식 불가 기호는 반드시 \\square 로 표기하세요 (§ 사용 금지)
 - 문제 번호, 선지(①②③④⑤), 조건 포함 (정답·해설·풀이는 제외)
 - 각 문장/항목은 줄바꿈으로 구분
 - 이미지나 그림은 [그림] 으로 표시
@@ -33,6 +35,8 @@ const ANSWER_PROMPT = `이 이미지는 수학 시험지 정답/해설 페이지
 규칙:
 - 마크다운 문법(#, **, --, ## 등) 절대 사용 금지
 - 수식은 LaTeX 형식으로 $...$ 안에 작성
+- 수식 내 인식이 불확실한 문자도 최대한 추측하여 LaTeX로 표현하세요. 절대로 §, □, ?, 빈칸 등 대체 문자를 사용하지 마세요.
+- 인식 불가 기호는 반드시 \\square 로 표기하세요 (§ 사용 금지)
 - 반드시 아래 형식으로만 출력:
 번호|답|해설
 1|④|2X-B=A-5B에서 2X=A-4B, X=$\\frac{1}{2}$A-2B=...
@@ -48,7 +52,12 @@ function cleanMarkdown(text: string): string {
     .replace(/^--\s*\d+\s*of\s*\d+\s*--$/gm, "")
     .replace(/^\s*[-*]\s+/gm, "")
     .replace(/\n{3,}/g, "\n\n")
+    .replace(/§/g, "\\square")
     .trim();
+}
+
+function replaceBrokenChars(text: string): string {
+  return text.replace(/§/g, "\\square");
 }
 
 // 추출된 문제 텍스트에서 정답/해설 섹션이 시작되는 위치부터 잘라냄
@@ -98,7 +107,7 @@ export async function extractFromPdf(buffer: Buffer): Promise<PageContent[]> {
 
   return [
     { text: removeAnswerSection(cleanMarkdown(rawQuestion)), isAnswerPage: false },
-    { text: rawAnswer, isAnswerPage: true },
+    { text: replaceBrokenChars(rawAnswer), isAnswerPage: true },
   ];
 }
 

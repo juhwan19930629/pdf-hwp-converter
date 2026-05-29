@@ -1,5 +1,7 @@
 export function latexToHwp(latex: string): string {
   return latex
+    .replace(/\\text\{([^}]+)\}/g, "roman{$1}")
+    .replace(/\\mathrm\{([^}]+)\}/g, "roman{$1}")
     .replace(/\\dfrac\{([^}]+)\}\{([^}]+)\}/g, "{$1 over $2}")
     .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "{$1 over $2}")
     .replace(/\\sqrt\{([^}]+)\}/g, "sqrt{$1}")

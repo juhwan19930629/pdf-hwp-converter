@@ -79,15 +79,8 @@ function buildRuns(line: string, eqIdRef: { value: number }): string {
       } else {
         tokens.push({ type: "eq", script });
       }
-    } else if (part.trim()) {
-      for (const sub of part.split(/(\d+\.\d+|\d+|[A-Z]+|[a-z](?=%)|%)/)) {
-        if (!sub) continue;
-        if (/^\d+(\.\d+)?$/.test(sub) || /^[a-zA-Z]+$/.test(sub.trim())) {
-          tokens.push({ type: "eq", script: sub.trim() });
-        } else {
-          tokens.push({ type: "text", value: sub });
-        }
-      }
+    } else if (part) {
+      tokens.push({ type: "text", value: part });
     }
   }
 
@@ -120,7 +113,7 @@ function buildEndnote(
   const explanationRuns = question.explanation
     ? `<hp:run charPrIDRef="0"><hp:t>  해설: </hp:t></hp:run>` + buildRuns(question.explanation, eqIdRef)
     : "";
-  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="10" styleIDRef="15" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl><hp:t/></hp:run>${answerRun}${explanationRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
+  return `<hp:run charPrIDRef="0"><hp:ctrl><hp:endNote number="${num}" suffixChar="41" instId="${instId}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="TOP" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0"><hp:p id="0" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="3"><hp:ctrl><hp:autoNum num="${num}" numType="ENDNOTE"><hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/></hp:autoNum></hp:ctrl></hp:run>${answerRun}${explanationRuns}</hp:p></hp:subList></hp:endNote></hp:ctrl></hp:run>`;
 }
 
 function buildQuestionPara(
